@@ -1,0 +1,64 @@
+#!/usr/bin/env ruby
+require 'optparse'
+require 'time'
+
+options = {
+  :pattern   => "*.mov",
+  :frames_per_sec => 8,
+  :outfile => 'combined.mov'
+}
+
+def show_usage_and_exit
+  puts @parser
+  exit 1
+end
+
+def require_ffmpeg
+  unless system('which ffmpeg >/dev/null')
+    puts "ERROR: Can't find 'ffpmeg' command line tool"
+    puts "This utility requires ffmpeg be installed"
+    puts
+    puts "Try: brew install ffmpeg"
+    puts
+
+    show_usage_and_exit
+  end
+end
+
+@parser = OptionParser.new do |opts|
+  opts.banner = <<EOL
+concat-videos combines a series of quicktime MOV videos via ffmpeg into a single video
+  Usage: concat-videos [*.mov]
+EOL
+
+  opts.on('-d', '--dir [PATH]', "Input directory/path") {|v| options[:in_dir] = v }
+  opts.on('-p', '--pattern [PATTERN]', "Filename Glob Pattern (ie: *.mov)") {|v| options[:pattern] = v }
+  opts.on('-o', '--outfile [FILE]', "Output video file") {|v| options[:outfile] = v }
+  opts.on_tail("-h", "--help", "Show this message") { show_usage_and_exit }
+end
+@parser.parse!(ARGV)
+
+require_ffmpeg
+
+in_dir = options.fetch(:in_dir, "./")
+target = File.expand_path(File.join(in_dir, options[:pattern].to_s))
+videos = Dir.glob(target).sort
+num_files = videos.size
+unless num_files > 0
+  puts "ERROR: No matching input files at #{ target }"
+  puts
+
+  show_usage_and_exit
+end
+
+puts "================================================================"
+puts "= Concatenate Videos from Rideye Disk"
+puts "= Input Videos: #{target} (#{num_files} videos)"
+videos.each {|path| puts "== #{path}" }
+puts "= Cobined Video: #{options[:outfile]}"
+puts "================================================================"
+
+concat_command = %Q{ffmpeg -i "concat:#{videos.join('|')}" -c copy #{options[:outfile]}}
+puts "= #{concat_command}"
+
+exec concat_command
